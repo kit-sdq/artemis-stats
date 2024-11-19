@@ -172,7 +172,16 @@ public class CLI {
 
         for (ProgrammingSubmission submission : submissions) {
             String studentId = submission.getParticipantIdentifier();
-            Assessment assessment = submission.openAssessment(config).orElse(null);
+            Assessment assessment = null;
+            try {
+                assessment = submission.openAssessment(config).orElse(null);
+            } catch (Exception e) {
+                // Artemis4j is not perfect and might crash while loading an assessment.
+                // If a crash occurs, the student will be skipped.
+                logger.error("Error while loading assessment for student %s, submission id: %d".formatted(studentId, submission.getId()), e);
+                continue;
+            }
+
             if (assessment == null) {
                 skippedStudents.add(studentId);
                 continue;
