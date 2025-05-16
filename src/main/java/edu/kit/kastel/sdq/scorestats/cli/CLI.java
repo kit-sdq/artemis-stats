@@ -1,4 +1,4 @@
-/* Licensed under EPL-2.0 2023-2024. */
+/* Licensed under EPL-2.0 2023-2025. */
 package edu.kit.kastel.sdq.scorestats.cli;
 
 import java.io.File;
@@ -131,7 +131,7 @@ public class CLI {
                 ProgrammingExercise exercise = entry.getKey();
                 GradingConfig config = entry.getValue();
 
-                logger.info(" -------------------- %s --------------------".formatted(exercise.getShortName()));
+                logger.info(" -------------------- {} --------------------", exercise.getShortName());
 
                 logger.info("Loading data...");
                 Assessments assessments;

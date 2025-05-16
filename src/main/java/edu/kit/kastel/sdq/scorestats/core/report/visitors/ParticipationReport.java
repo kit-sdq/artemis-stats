@@ -1,4 +1,4 @@
-/* Licensed under EPL-2.0 2023-2024. */
+/* Licensed under EPL-2.0 2023-2025. */
 package edu.kit.kastel.sdq.scorestats.core.report.visitors;
 
 import java.util.Collection;
@@ -23,9 +23,9 @@ public class ParticipationReport implements ReportVisitor<Ratio> {
         Course course = data.course();
 
         if (data.students() == null || data.students().isEmpty()) {
-            return new Ratio(assessments.assessments().size() + assessments.skippedStudents().size(), course.getNumberOfStudents());
+            return new Ratio((double) assessments.assessments().size() + assessments.skippedStudents().size(), course.getNumberOfStudents());
         } else {
-            return new Ratio(data.selectedAssessments().size() + getSkippedStudentCount(assessments.skippedStudents(), data.students()),
+            return new Ratio((double) data.selectedAssessments().size() + getSkippedStudentCount(assessments.skippedStudents(), data.students()),
                     data.students().size());
         }
     }
