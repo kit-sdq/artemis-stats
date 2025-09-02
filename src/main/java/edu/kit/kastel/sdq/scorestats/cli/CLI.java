@@ -24,8 +24,10 @@ import edu.kit.kastel.sdq.artemis4j.grading.ArtemisConnection;
 import edu.kit.kastel.sdq.artemis4j.grading.Assessment;
 import edu.kit.kastel.sdq.artemis4j.grading.Course;
 import edu.kit.kastel.sdq.artemis4j.grading.Exercise;
+import edu.kit.kastel.sdq.artemis4j.grading.PackedAssessment;
 import edu.kit.kastel.sdq.artemis4j.grading.ProgrammingExercise;
 import edu.kit.kastel.sdq.artemis4j.grading.ProgrammingSubmission;
+import edu.kit.kastel.sdq.artemis4j.grading.ProgrammingSubmissionWithResults;
 import edu.kit.kastel.sdq.artemis4j.grading.metajson.AnnotationMappingException;
 import edu.kit.kastel.sdq.artemis4j.grading.penalty.GradingConfig;
 import edu.kit.kastel.sdq.artemis4j.grading.penalty.InvalidGradingConfigException;
@@ -161,29 +163,26 @@ public class CLI {
     }
 
     private Assessments loadAssessments(GradingConfig config, ProgrammingExercise exercise) throws ArtemisNetworkException, AnnotationMappingException {
-        Collection<ProgrammingSubmission> submissions = new ArrayList<>(exercise.fetchSubmissions(0, false));
-
-        if (exercise.hasSecondCorrectionRound()) {
-            submissions.addAll(exercise.fetchSubmissions(1, false));
-        }
+        Collection<ProgrammingSubmissionWithResults> submissions = exercise.fetchAllSubmissions();
 
         Map<String, Assessment> assessments = HashMap.newHashMap(submissions.size());
         List<String> skippedStudents = new ArrayList<>();
 
-        for (ProgrammingSubmission submission : submissions) {
-            String studentId = submission.getParticipantIdentifier();
-            Assessment assessment = null;
-            try {
-                assessment = submission.openAssessment(config).orElse(null);
-            } catch (Exception e) {
-                // Artemis4j is not perfect and might crash while loading an assessment.
-                // If a crash occurs, the student will be skipped.
-                logger.error("Error while loading assessment for student %s, submission id: %d".formatted(studentId, submission.getId()), e);
+        for (var submission : submissions) {
+            String studentId = submission.getSubmission().getParticipantIdentifier();
+            Assessment assessment;
+            if (submission.isSecondRoundFinished()) {
+                assessment = tryOpenAssessment(submission.getReviewAssessment(), config);
+            } else if (submission.isSecondRoundStarted()) {
+                assessment = tryOpenAssessment(submission.getSecondRoundAssessment(), config);
+            } else if (submission.isFirstRoundStarted()) {
+                assessment = tryOpenAssessment(submission.getFirstRoundAssessment(), config);
+            } else {
+                skippedStudents.add(studentId);
                 continue;
             }
 
             if (assessment == null) {
-                skippedStudents.add(studentId);
                 continue;
             }
 
@@ -195,5 +194,21 @@ public class CLI {
         }
 
         return new Assessments(skippedStudents, assessments);
+    }
+
+    private Assessment tryOpenAssessment(PackedAssessment assessment, GradingConfig config) {
+        if (assessment == null) {
+            return null;
+        }
+
+        try {
+            return assessment.openWithoutLock(config);
+        } catch (Exception e) {
+            // Artemis4j is not perfect and might crash while loading an assessment.
+            // If a crash occurs, the student will be skipped.
+            var submission = assessment.submission();
+            logger.error("Error while loading assessment for student %s, submission id: %d".formatted(submission.getParticipantIdentifier(), submission.getId()), e);
+            return null;
+        }
     }
 }
